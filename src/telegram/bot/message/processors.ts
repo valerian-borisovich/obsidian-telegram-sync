@@ -70,10 +70,14 @@ export async function finalizeMessageProcessing(plugin: TelegramSyncPlugin, msg:
 				silent: true,
 			});
 		} else if (needReply) {
-			await plugin.bot?.sendMessage(msg.chat.id, ok_msg + errorMessage, {
+			const msgReply: TelegramBot.Message = await plugin.bot?.sendMessage(msg.chat.id, ok_msg + errorMessage, {
 				reply_to_message_id: msg.message_id,
 				disable_notification: true,
 			});
+			if (msgReply) {
+				await sleep(5000);
+				await plugin.bot.deleteMessage(msgReply.chat.id, msgReply.message_id);
+			}
 		}
 	}
 }
