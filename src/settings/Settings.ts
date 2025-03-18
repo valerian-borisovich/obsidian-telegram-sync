@@ -105,7 +105,7 @@ export class TelegramSyncSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: TelegramSyncPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
-		this.subscribedOnInsiderChannel = false;
+		this.subscribedOnInsiderChannel = true;
 	}
 
 	async refresh() {
@@ -154,7 +154,8 @@ export class TelegramSyncSettingTab extends PluginSettingTab {
 		await this.addMessageDistributionRules();
 
 		new Setting(this.containerEl).setName("Insider features").setHeading();
-		this.subscribedOnInsiderChannel = await Client.subscribedOnInsiderChannel();
+		//this.subscribedOnInsiderChannel = await Client.subscribedOnInsiderChannel();
+		this.subscribedOnInsiderChannel = true
 		await this.addProcessOldMessages();
 		await this.addBetaRelease();
 		this.addTelegramChannel();
