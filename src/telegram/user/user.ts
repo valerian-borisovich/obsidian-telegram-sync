@@ -1,6 +1,7 @@
 import TelegramSyncPlugin from "src/main";
 import * as Client from "./client";
 import { StatusMessages, displayAndLogError } from "src/utils/logUtils";
+import { enqueue } from "src/utils/queues";
 
 export async function connect(
 	plugin: TelegramSyncPlugin,
@@ -31,10 +32,14 @@ export async function connect(
 		plugin.userConnected = await Client.isAuthorizedAsUser();
 
 		if (sessionType == "bot" || !plugin.userConnected) {
-			await Client.signInAsBot(plugin.settings.botToken);
+			await Client.signInAsBot(await enqueue(plugin, plugin.getBotToken));
 		}
 
-		if (sessionType == "user" && !plugin.userConnected) return "Connection failed. See logs";
+		if (sessionType == "user" && !plugin.userConnected) {
+			let qrError = qrCodeContainer?.getText();
+			qrError = qrError?.contains("Error") ? qrError : "See errors in console (CTRL + SHIFT + I)";
+			return `Connection failed.\n${qrError}`;
+		}
 
 		if (plugin.userConnected && !sessionId) {
 			plugin.settings.telegramSessionId = newSessionId;
@@ -45,7 +50,7 @@ export async function connect(
 		if (!error.message.includes("API_ID_PUBLISHED_FLOOD")) {
 			plugin.userConnected = false;
 			await displayAndLogError(plugin, error, "", "", undefined, 0);
-			return "Connection failed: " + error.message;
+			return `Connection failed.\n${error.message}`;
 		}
 	} finally {
 		plugin.checkingUserConnection = false;

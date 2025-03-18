@@ -1,6 +1,7 @@
 import { Modal, Setting } from "obsidian";
 import TelegramSyncPlugin from "src/main";
 import { _5sec, displayAndLog } from "src/utils/logUtils";
+import { PinCodeModal } from "./PinCode";
 
 export const mainDeviceIdSettingName = "Main device id";
 
@@ -16,6 +17,7 @@ export class BotSettingsModal extends Modal {
 		this.addBotToken();
 		this.addAllowedChatsSetting();
 		this.addDeviceId();
+		this.addEncryptionByPinCode();
 		this.addFooterButtons();
 	}
 
@@ -29,10 +31,14 @@ export class BotSettingsModal extends Modal {
 		lim24Hours.style.marginLeft = "10px";
 		const limBlocks = document.createElement("div");
 		limBlocks.style.marginLeft = "10px";
-		limBlocks.setText("- Use VPN to bypass blocks in China, Iran, and limited corporate networks ");
+		limBlocks.setText("- Use VPN or proxy to bypass blocks in China, Iran, and limited corporate networks ");
 		limBlocks.createEl("a", {
 			href: "https://github.com/soberhacker/obsidian-telegram-sync/issues/225#issuecomment-1780539957",
-			text: "(ex. config of Clash)",
+			text: "([ex. config of Clash],",
+		});
+		limBlocks.createEl("a", {
+			href: "https://github.com/windingblack/obsidian-global-proxy",
+			text: " [Obsidian Global Proxy])",
 		});
 		limitations.descEl.appendChild(lim24Hours);
 		limitations.descEl.appendChild(limBlocks);
@@ -42,9 +48,9 @@ export class BotSettingsModal extends Modal {
 		new Setting(this.botSettingsDiv)
 			.setName("Bot token (required)")
 			.setDesc("Enter your Telegram bot token.")
-			.addText((text) => {
+			.addText(async (text) => {
 				text.setPlaceholder("example: 6123456784:AAX9mXnFE2q9WahQ")
-					.setValue(this.plugin.settings.botToken)
+					.setValue(await this.plugin.getBotToken())
 					.onChange(async (value: string) => {
 						if (!value) {
 							text.inputEl.style.borderColor = "red";
@@ -52,6 +58,7 @@ export class BotSettingsModal extends Modal {
 							text.inputEl.style.borderStyle = "solid";
 						}
 						this.plugin.settings.botToken = value;
+						this.plugin.settings.botTokenEncrypted = false;
 					});
 			});
 	}
@@ -122,6 +129,38 @@ export class BotSettingsModal extends Modal {
 			});
 	}
 
+	addEncryptionByPinCode() {
+		const botTokenSetting = new Setting(this.botSettingsDiv)
+			.setName("Bot token encryption using a PIN code")
+			.setDesc(
+				"Encrypt the bot token for enhanced security. When enabled, a PIN code is required at each Obsidian launch. ",
+			)
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.encryptionByPinCode);
+				toggle.onChange(async (value) => {
+					if (this.plugin.settings.botTokenEncrypted) {
+						this.plugin.settings.botToken = await this.plugin.getBotToken();
+						this.plugin.settings.botTokenEncrypted = false;
+					}
+					this.plugin.settings.encryptionByPinCode = value;
+					if (!value) {
+						this.plugin.pinCode = undefined;
+						return;
+					}
+					const pinCodeModal = new PinCodeModal(this.plugin, false);
+					pinCodeModal.onClose = async () => {
+						if (pinCodeModal.saved && this.plugin.pinCode) return;
+						this.plugin.settings.encryptionByPinCode = false;
+					};
+					pinCodeModal.open();
+				});
+			});
+		botTokenSetting.descEl.createEl("a", {
+			href: "https://github.com/soberhacker/obsidian-telegram-sync/blob/main/docs/Bot%20Token%20Encryption.md",
+			text: "What does this can prevent?",
+		});
+	}
+
 	addFooterButtons() {
 		this.botSettingsDiv.createEl("br");
 		const footerButtons = new Setting(this.contentEl.createDiv());
@@ -129,6 +168,7 @@ export class BotSettingsModal extends Modal {
 			b.setTooltip("Connect")
 				.setIcon("checkmark")
 				.onClick(async () => {
+					if (!this.plugin.settings.botTokenEncrypted) this.plugin.botTokenEncrypt();
 					await this.plugin.saveSettings();
 					this.saved = true;
 					this.close();

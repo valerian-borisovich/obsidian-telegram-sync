@@ -55,6 +55,8 @@ export async function handleMessage(plugin: TelegramSyncPlugin, msg: TelegramBot
 	const { fileObject, fileType } = getFileObject(msg);
 	// skip system messages
 
+	!isChannelPost && (await enqueue(ifNewReleaseThenShowChanges, plugin, msg));
+
 	if (!msg.text && !fileObject) {
 		displayAndLog(plugin, `System message skipped`, 0);
 		return;
@@ -83,18 +85,26 @@ export async function handleMessage(plugin: TelegramSyncPlugin, msg: TelegramBot
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	if ((msg as any).userMsg) {
-		displayAndLog(plugin, `Message "${msgText}" skipped\nAlready processed before!`, 0);
+		displayAndLog(plugin, `Message skipped: already processed before!\n--- Message ---\n${msgText}\n<===`, 0);
 		return;
 	}
 
 	const distributionRule = await getMessageDistributionRule(plugin, msg);
-	if (msgText.length > 30) msgText = msgText.slice(1, 30) + "...";
+	if (msgText.length > 200) msgText = msgText.slice(0, 200) + "... (trimmed)";
 	if (!distributionRule) {
-		displayAndLog(plugin, `Message "${msgText}" skipped\nNo matched distribution rule!`, 0);
+		displayAndLog(plugin, `Message skipped: no matched distribution rule!\n--- Message ---\n${msgText}\n<===`, 0);
 		return;
 	} else {
 		const ruleInfo = getMessageDistributionRuleInfo(distributionRule);
-		displayAndLog(plugin, `Message: ${msgText}\nDistribution rule: ${JSON.stringify(ruleInfo)}`, 0);
+		displayAndLog(
+			plugin,
+			`Message received\n--- Message ---\n${msgText}\n--- Distribution rule ---\n${JSON.stringify(
+				ruleInfo,
+				undefined,
+				4,
+			)}\n<===`,
+			0,
+		);
 	}
 
 	// Check if message has been sended by allowed users or chats
@@ -135,7 +145,6 @@ export async function handleMessage(plugin: TelegramSyncPlugin, msg: TelegramBot
 	try {
 		if (!msg.text && distributionRule.filePathTemplate) await handleFiles(plugin, msg, distributionRule);
 		else await handleMessageText(plugin, msg, distributionRule);
-		!isChannelPost && (await enqueue(ifNewReleaseThenShowChanges, plugin, msg));
 	} catch (error) {
 		await displayAndLogError(plugin, error, "", "", msg, _15sec);
 	} finally {
@@ -217,6 +226,7 @@ export async function handleFiles(
 			const chatId = msg.chat.id < 0 ? msg.chat.id.toString().slice(4) : msg.chat.id.toString();
 			telegramFileName =
 				telegramFileName || fileLink?.split("/").pop()?.replace(/file/, `${fileType}_${chatId}`) || "";
+			// TODO add bot file size limits to error "...file is too big..." (https://t.me/c/1536715535/1266)
 			const fileStream = plugin.bot.getFileStream(fileId);
 			const fileChunks: Uint8Array[] = [];
 
@@ -321,7 +331,15 @@ async function handleMediaGroup(plugin: TelegramSyncPlugin, distributionRule: Me
 					mg.filesPaths,
 					mg.error,
 				);
-				await enqueue(appendContentToNote, plugin.app.vault, mg.notePath, noteContent);
+				await enqueue(
+					appendContentToNote,
+					plugin.app.vault,
+					mg.notePath,
+					noteContent,
+					distributionRule.heading,
+					plugin.settings.defaultMessageDelimiter ? defaultDelimiter : "",
+					distributionRule.reversedOrder,
+				);
 				await finalizeMessageProcessing(plugin, mg.initialMsg, mg.error);
 			} catch (e) {
 				displayAndLogError(plugin, e, "", "", mg.initialMsg, 0);
@@ -369,7 +387,15 @@ async function appendFileToNote(
 
 	const noteContent = await createNoteContent(plugin, notePath, msg, distributionRule, [filePath], error);
 
-	await enqueue(appendContentToNote, plugin.app.vault, notePath, noteContent);
+	await enqueue(
+		appendContentToNote,
+		plugin.app.vault,
+		notePath,
+		noteContent,
+		distributionRule.heading,
+		plugin.settings.defaultMessageDelimiter ? defaultDelimiter : "",
+		distributionRule.reversedOrder,
+	);
 }
 
 // show changes about new release
@@ -386,7 +412,6 @@ export async function ifNewReleaseThenShowChanges(plugin: TelegramSyncPlugin, ms
 			parse_mode: "HTML",
 			reply_markup: { inline_keyboard: donationInlineKeyboard },
 		};
-
 		await plugin.bot?.sendMessage(msg.chat.id, release.notes, options);
 	}
 
