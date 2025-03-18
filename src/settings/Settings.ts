@@ -69,6 +69,7 @@ export interface TelegramSyncSettings {
 	processOtherBotsMessages: boolean;
 	retryFailedMessagesProcessing: boolean;
 	// add new settings above this line
+	deleteReplayMessages: number;
 	topicNames: Topic[];
 }
 
@@ -93,6 +94,7 @@ export const DEFAULT_SETTINGS: TelegramSyncSettings = {
 	processOtherBotsMessages: false,
 	retryFailedMessagesProcessing: false,
 	// add new settings above this line
+	deleteReplayMessages: 5 * _1sec,
 	topicNames: [],
 };
 
@@ -154,8 +156,7 @@ export class TelegramSyncSettingTab extends PluginSettingTab {
 		await this.addMessageDistributionRules();
 
 		new Setting(this.containerEl).setName("Insider features").setHeading();
-		//this.subscribedOnInsiderChannel = await Client.subscribedOnInsiderChannel();
-		this.subscribedOnInsiderChannel = true
+		this.subscribedOnInsiderChannel = await Client.subscribedOnInsiderChannel();
 		await this.addProcessOldMessages();
 		await this.addBetaRelease();
 		this.addTelegramChannel();
@@ -432,7 +433,8 @@ export class TelegramSyncSettingTab extends PluginSettingTab {
 	}
 
 	async addProcessOldMessages() {
-		const disabled = !this.plugin.userConnected || !this.subscribedOnInsiderChannel;
+		//const disabled = !this.plugin.userConnected || !this.subscribedOnInsiderChannel;
+		const disabled = !this.plugin.userConnected;
 
 		new Setting(this.containerEl)
 			.setName("Process old messages")

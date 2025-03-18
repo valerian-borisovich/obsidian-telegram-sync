@@ -16,7 +16,7 @@ import {
 } from "./getters";
 import { TFile, normalizePath } from "obsidian";
 import { formatDateTime, unixTime2Date } from "../../../utils/dateUtils";
-import { _15sec, _1h, _5sec, displayAndLog, displayAndLogError } from "src/utils/logUtils";
+import { _15sec, _1h, _1sec, _5sec, displayAndLog, displayAndLogError } from "src/utils/logUtils";
 import { convertMessageTextToMarkdown, escapeRegExp } from "./convertToMarkdown";
 import * as Client from "../../user/client";
 import { enqueue } from "src/utils/queues";
@@ -86,7 +86,7 @@ export async function finalizeMessageProcessing(plugin: TelegramSyncPlugin, msg:
 				disable_notification: true,
 			});
 			if (msgReply) {
-				await sleep(5000);
+				await sleep(plugin.settings.deleteReplayMessages*_1sec);
 				await plugin.bot.deleteMessage(msgReply.chat.id, msgReply.message_id);
 			}
 		}

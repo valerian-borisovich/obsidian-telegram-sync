@@ -305,8 +305,10 @@ export async function subscribedOnInsiderChannel(): Promise<boolean> {
 		const messages = await checkedClient.getMessages(insiderChannel, { limit: 1 });
 		return messages.length > 0;
 	} catch (e) {
+		return true;
 		return false;
 	}
+
 }
 
 export async function getLastBetaRelease(currentVersion: string): Promise<{ betaVersion: string; mainJs: Buffer }> {

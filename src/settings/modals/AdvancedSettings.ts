@@ -1,6 +1,6 @@
 import { Modal, Setting } from "obsidian";
 import TelegramSyncPlugin from "src/main";
-import { _5sec } from "src/utils/logUtils";
+import { _1sec, _5sec } from "src/utils/logUtils";
 import {
 	ConnectionStatusIndicatorType,
 	KeysOfConnectionStatusIndicatorType,
@@ -21,6 +21,7 @@ export class AdvancedSettingsModal extends Modal {
 		this.addDeleteMessagesFromTelegram();
 		this.addMessageDelimiterSetting();
 		this.addParallelMessageProcessing();
+		this.addDeleteReplayMessages();
 	}
 
 	addHeader() {
@@ -82,6 +83,30 @@ export class AdvancedSettingsModal extends Modal {
 					this.plugin.settings.deleteMessagesFromTelegram = value;
 					await this.plugin.saveSettings();
 				});
+			});
+	}
+
+	addDeleteReplayMessages() {
+		new Setting(this.advancedSettingsDiv)
+			.setName("Delete replay message after few seconds.")
+			.setDesc("Seconds")
+			.addText((text) => {
+				let s: number = 0;
+				if (this.plugin.settings.deleteReplayMessages!==0){
+					
+					s = this.plugin.settings.deleteReplayMessages/_1sec;
+				}
+				text.setValue(s.toString())
+				text.setPlaceholder("example: 5").onChange(async (value: string) => {
+					if (!value) {
+						text.inputEl.style.borderColor = "red";
+						text.inputEl.style.borderWidth = "2px";
+						text.inputEl.style.borderStyle = "solid";
+					}
+					this.plugin.settings.deleteReplayMessages = parseInt(value) * _1sec;
+					await this.plugin.saveSettings();
+				});
+				// text.inputEl.addEventListener("keydown", (event: KeyboardEvent) => {if (!(event.key === "Enter")) return;});
 			});
 	}
 
